@@ -1,8 +1,7 @@
-
 /* Top Nav */
 .top-navbar {
   @apply flex py-2 min-h-[48px];
-
+  
   @screen lg {
     @apply py-1.5;
   }
@@ -49,15 +48,6 @@
 
   .search-btn{
     @apply grow sm:grow-0 justify-start md:justify-center;
-  }
-}
-
-// contacs menu items - pages menu items
-.topnav-link-item{
-  @apply inline-block transition duration-300 px-4 rtl:last:pl-0 ltr:last:pr-0 py-px text-sm leading-none ltr:border-r rtl:border-l border-gray-200 ltr:last:border-0 rtl:last:border-0 hover:opacity-80;
-
-  &.right-side{
-    @apply rtl:first:pr-0 ltr:first:pl-0
   }
 }
 
@@ -187,10 +177,113 @@ salla-user-menu{
   }
 }
 
-
-// Search
+/* Search */
 .header-search{
   .s-search-results{
     @apply z-10;
+  }
+}
+
+/* Side Panel */
+.side-panel {
+  @apply w-full md:w-[420px] h-full fixed z-[101] top-0 bg-white invisible pointer-events-none transition-all duration-300 ease-elastic;
+
+  /* content */
+  &__top {
+    @apply flex items-center relative z-1;
+  }
+
+  &__content {
+    @apply overflow-auto px-5 pt-10 pb-32 lg:p-10 grow opacity-0 transition-all duration-500;
+
+    /* width */
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    /* Track */
+    &::-webkit-scrollbar-track {
+      @apply bg-[color-mix(in_srgb, var(--color-primary)_10%, white)]
+    }
+
+    /* Handle */
+    &::-webkit-scrollbar-thumb {
+      @apply bg-primary rounded;
+    }
+  }
+
+  &__bottom {
+    @apply relative mt-auto p-5 lg:px-10;
+  }
+
+  .menu-close {
+    @apply absolute z-2 top-8 rtl:left-8 ltr:right-8 cursor-pointer w-[28px] h-[28px];
+
+    &:before,
+    &:after {
+      @apply content-[''] bg-gray-500 top-0 left-0 h-px absolute mt-4 rotate-[45deg] transition-all duration-300 w-[28px];
+    }
+
+    &:after {
+      @apply -rotate-[45deg];
+    }
+
+    label {
+      @apply absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs transition-all duration-300 opacity-0;
+    }
+
+    &:hover {
+
+      &:after,
+      &:before {
+        @apply rotate-0 bg-red-500;
+      }
+
+      label {
+        @apply opacity-100;
+      }
+    }
+  }
+
+  /* Variations */
+  &--wide {
+    @apply md: w-[736px];
+
+    .main-menu>li>ul {
+      @apply relative;
+    }
+  }
+
+  &--left {
+    @apply rtl: left-0 ltr:right-0 rtl:-translate-x-full ltr:translate-x-full;
+
+    .side-panel__content {
+      @apply rtl: -translate-x-10 ltr:translate-x-10;
+    }
+  }
+
+  &--top {
+    @apply md: w-full h-auto left-0 -translate-y-full;
+
+    .side-panel__content {
+      @apply -translate-y-10;
+    }
+  }
+
+  &--bottom {
+    @apply md: w-full h-full md:h-auto top-auto bottom-0 left-0 translate-y-full;
+
+    .side-panel__content {
+      @apply translate-y-10;
+    }
+  }
+
+  &.is-opened {
+    @apply transform-none visible pointer-events-auto;
+
+    .side-panel__content {
+      @apply opacity-100 translate-x-0 translate-y-0;
+      transition: opacity 0.7s 0.2s, transform 0.5s 0.1s;
+    }
   }
 }

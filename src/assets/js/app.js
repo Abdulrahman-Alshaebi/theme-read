@@ -293,6 +293,105 @@ class App extends AppHelpers {
       app.element('salla-cart-summary').animateToCart(app.element(`#product-${prodId} img`));
     });
   }
+
+  cartSummary() {
+    const cartBtn = document.querySelector('#cart-button');
+    cartBtn.addEventListener('click', async event => {
+      const cartPanel = app.element('#cart-summary-panel'),
+        itemsWrap = cartPanel.querySelector('#cart-summary__items'),
+        total = cartPanel.querySelector('[data-cart-total]'),
+        subTotal = cartPanel.querySelector('#sub-total'),
+        count = cartPanel.querySelector('.cart-products-count'),
+        placeholder = salla.url.asset(salla.config.get('theme.settings.placeholder'));
+
+      cartPanel.classList.add('is-opened');
+
+      cartPanel.classList.add('is-loading');
+
+      await salla.api.cart.details().then((res) => {
+
+        let cart = res.data.cart;
+        if (cart.items.length) {
+          cartPanel.classList.remove('cart-is-empty');
+          count.innerHTML = '(' + cart.count + ' منتج)';
+          itemsWrap.innerHTML = cart.items.map(item => {
+            let item_url = item.product_url || salla.url.get('*/p' + item.product_id);
+            return `
+            <form onchange="salla.form.onChange('cart.updateItem', event)" id="item-${item.id}">
+              <section class="cart-item bg-white p-2.5 md:p-5 rounded mb-2.5 md:mb-5 relative border border-gray-100">
+                  <input type="hidden" name="id" value="${item.id}">
+                  
+                  <div class="md:flex rtl:space-x-reverse md:space-x-12 items-start justify-between">
+                      <div class="flex flex-1 rtl:space-x-reverse space-x-4">
+                          <a href="${item_url}" class="shrink-0">
+                            <img src="${item.product_image}" alt="${item.product_name}" class="flex-none w-24 h-20 rounded object-center object-cover">
+                          </a>
+                          <div class="space-y-1">
+                              <h2 class="text-gray-900 leading-6 text-lg">
+                                  <a href="${item_url}" class="text-base">${item.product_name}</a>
+                              </h2>
+
+                              <div class="flex items-center gap-1.5">
+                                <span class="text-sm text-gray-500 line-through item-regular-price ${item.offer?'':'hidden'}">${ salla.money(item.product_price)}</span>
+                                <span class="item-price">${salla.money(item.price)}</span>
+                              </div>
+
+                              ${item.offer ? `
+                                <div class="flex items-center gap-1.5">
+                                  <i class="sicon-discount-calculator text-gray-500 offer-icon"></i>
+                                  <span class="text-sm text-gray-500 offer-name">${item.offer.names}</span>
+                                </div>
+                              ` : ``}
+
+                              <p class="text-primary flex-none font-bold text-sm rtl:md:pl-12 ltr:md:pr-12">
+                                  <span>${salla.lang.get('pages.cart.total')}:</span>
+                                  <span class="inline-block item-total">${ item.is_available ? salla.money(item.total) : salla.lang.get('pages.cart.out_of_stock')}</span>
+                              </p>
+                          </div>
+                      </div>
+
+                      <div class="flex-1 border-t border-gray-100 pt-3 md:border-none mt-5 md:mt-0 flex justify-between items-center md:items-start">
+                          
+                        <salla-quantity-input cart-item-id="${item.id}" max="{{ product.max_quantity }}"
+                            class="transtion transition-color duration-300" aria-label="Quantity"
+                            value="${item.quantity}" name="quantity">
+                        </salla-quantity-input>
+                          
+                      </div>
+                  </div>
+
+                  <span class="absolute top-1.5 rtl:left-1.5 ltr:right-1.5 rtl:xs:left-5 ltr:xs:right-5 xs:top-5">
+                      <salla-button type="button" shape="icon" size="medium" color="danger" class="btn--delete" aria-label="Remove from the cart" onclick="salla.cart.deleteItem(${item.id}).then(() => document.querySelector('#item-${item.id}').remove())">
+                        <i class="smticon-trash"></i>
+                      </salla-button>
+                  </span>
+              </section>
+            </form>
+            `
+          }).join('');
+
+          total.innerHTML = salla.money(cart.total);
+
+          if (cart.sub_total) {
+            subTotal.classList.remove('hidden');
+            subTotal.innerHTML = salla.money(cart.sub_total);
+          } else
+            subTotal.classList.add('hidden');
+
+        } else {
+          cartPanel.classList.add('cart-is-empty');
+          itemsWrap.innerHTML = `
+            <div class="no-content-placeholder">
+                <i class="sicon-shopping-bag icon"></i>
+                <p>${salla.lang.get('pages.cart.empty_cart')}</p>
+            </div>
+          `
+        }
+      }).finally(() => {
+        cartPanel.classList.remove('is-loading');
+      })
+    })
+  }
 }
 
 salla.onReady(() => (new App).loadTheApp());
