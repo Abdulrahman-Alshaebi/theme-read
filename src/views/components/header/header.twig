@@ -6,6 +6,113 @@
 | cart.total       | string  | Formatted total ex: "١٠٠ ر.س"   |
 #}
 {% set important_links = theme.settings.get('important_links') %}
+
+<style>.side-panel {
+  @apply w-full md: w-[420px] h-full fixed z-[101] top-0 bg-white invisible pointer-events-none transition-all duration-300 ease-elastic;
+
+  // content
+  &__top {
+    @apply flex items-center relative z-1;
+  }
+
+  &__content {
+    @apply overflow-auto px-5 pt-10 pb-32 lg: p-10 grow opacity-0 transition-all duration-500;
+
+    /* width */
+    &::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    /* Track */
+    &::-webkit-scrollbar-track {
+      @apply bg-[color-mix(in_srgb, var(--color-primary)_10%, white)]
+    }
+
+    /* Handle */
+    &::-webkit-scrollbar-thumb {
+      @apply bg-primary rounded;
+    }
+  }
+
+  &__bottom {
+    @apply relative mt-auto p-5 lg: px-10;
+  }
+
+  $close_width: 28;
+
+  .menu-close {
+    @apply absolute z-2 top-8 rtl:left-8 ltr:right-8 cursor-pointer w-[#{$close_width}px] h-[#{$close_width}px];
+
+    &:before,
+    &:after {
+      @apply content-[''] bg-gray-500 top-0 left-0 h-px absolute mt-4 rotate-[45deg] transition-all duration-300 w-[#{$close_width}px];
+    }
+
+    &:after {
+      @apply -rotate-[45deg];
+    }
+
+    label {
+      @apply absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs transition-all duration-300 opacity-0;
+    }
+
+    &:hover {
+
+      &:after,
+      &:before {
+        @apply rotate-0 bg-red-500;
+      }
+
+      label {
+        @apply opacity-100;
+      }
+    }
+  }
+
+  // Variations
+  &--wide {
+    @apply md: w-[736px];
+
+    .main-menu>li>ul {
+      @apply relative;
+    }
+  }
+
+  &--left {
+    @apply rtl: left-0 ltr:right-0 rtl:-translate-x-full ltr:translate-x-full;
+
+    .side-panel__content {
+      @apply rtl: -translate-x-10 ltr:translate-x-10;
+    }
+  }
+
+  &--top {
+    @apply md: w-full h-auto left-0 -translate-y-full;
+
+    .side-panel__content {
+      @apply -translate-y-10;
+    }
+  }
+
+  &--bottom {
+    @apply md: w-full h-full md:h-auto top-auto bottom-0 left-0 translate-y-full;
+
+    .side-panel__content {
+      @apply translate-y-10;
+    }
+  }
+
+  &.is-opened {
+    @apply transform-none visible pointer-events-auto;
+
+    .side-panel__content {
+      @apply opacity-100 translate-x-0 translate-y-0;
+      transition: opacity 0.7s 0.2s, transform 0.5s 0.1s;
+    }
+  }
+}
+
+</style>
 <header class="store-header">
   {# Top Nav #}
   <div class="top-navbar">
@@ -45,6 +152,43 @@
     </div>
   </div>
 
+
+  {# mini Cart #}
+
+  <aside id="cart-summary-panel" class="side-panel side-panel--wide side-panel--cart side-panel--left flex flex-col">
+  <div class="side-panel__top">
+    <button class="menu-close"></button>
+  </div>
+  <div class="side-panel__content">
+    <h2 class="mb-8">{{ trans('pages.checkout.cart') }}
+      <span class="cart-products-count"></span>
+    </h2>
+    <div id="cart-summary__items"></div>
+  </div>
+  <div class="side-panel__bottom flex flex-col gap-5">
+    <div class="flex justify-between text-sm">
+      <span class="text-gray-500">{{trans('pages.cart.items_total')}}</span>
+      <b id="sub-total"></b>
+    </div>
+    <div class="cart-subtotal flex justify-between items-center border-t border-gray-100 pt-3">
+      <div>
+        <h5>{{trans('pages.cart.final_total')}}</h5>
+        {% if store.settings.tax.taxable_prices_enabled %}
+        <small class="opacity-70">
+        <span class="text-red-600">*</span>
+        {{ trans('pages.products.tax_included')}}</small>
+        {% endif %}
+      </div>
+      <strong data-cart-total class="total-value text-lg"></strong>
+    </div>
+    <salla-button href="{{link('cart')}}" id="cart-submit" class="cart-submit-btn" width="wide">
+      <span class="smticon-cart text-lg"></span>
+      <span>{{trans('blocks.header.goToCartPage')}}</span>
+    </salla-button>
+    <button class="close-side-panel btn btn--link w-full !font-normal !py-2">{{trans('pages.offer.continue_shopping')}}</button>
+  </div>
+</aside>
+
   {# Main Nav #}
   <div id="mainnav" class="main-nav-container shadow-default bg-white">
       <div class="inner bg-inherit">
@@ -80,7 +224,112 @@
           </div>
       </div>
   </div>
+
+
 </header>
+
+
+<script>
+  function cartSummary() {
+    const cartBtn = document.querySelector('#cart-button');
+    cartBtn.addEventListener('click', async event => {
+      const cartPanel = app.element('#cart-summary-panel'),
+        itemsWrap = cartPanel.querySelector('#cart-summary__items'),
+        total = cartPanel.querySelector('[data-cart-total]'),
+        subTotal = cartPanel.querySelector('#sub-total'),
+        count = cartPanel.querySelector('.cart-products-count'),
+        placeholder = salla.url.asset(salla.config.get('theme.settings.placeholder'));
+
+      cartPanel.classList.add('is-opened');
+
+      cartPanel.classList.add('is-loading');
+
+      await salla.api.cart.details().then((res) => {
+
+        let cart = res.data.cart;
+        if (cart.items.length) {
+          cartPanel.classList.remove('cart-is-empty');
+          count.innerHTML = '(' + cart.count + ' منتج)';
+          itemsWrap.innerHTML = cart.items.map(item => {
+            let item_url = item.product_url || salla.url.get('*/p' + item.product_id);
+            return `
+            <form onchange="salla.form.onChange('cart.updateItem', event)" id="item-${item.id}">
+              <section class="cart-item bg-white p-2.5 md:p-5 rounded mb-2.5 md:mb-5 relative border border-gray-100">
+                  <input type="hidden" name="id" value="${item.id}">
+                  
+                  <div class="md:flex rtl:space-x-reverse md:space-x-12 items-start justify-between">
+                      <div class="flex flex-1 rtl:space-x-reverse space-x-4">
+                          <a href="${item_url}" class="shrink-0">
+                            <img src="${item.product_image}" alt="${item.product_name}" class="flex-none w-24 h-20 rounded object-center object-cover">
+                          </a>
+                          <div class="space-y-1">
+                              <h2 class="text-gray-900 leading-6 text-lg">
+                                  <a href="${item_url}" class="text-base">${item.product_name}</a>
+                              </h2>
+
+                              <div class="flex items-center gap-1.5">
+                                <span class="text-sm text-gray-500 line-through item-regular-price ${item.offer?'':'hidden'}">${ salla.money(item.product_price)}</span>
+                                <span class="item-price">${salla.money(item.price)}</span>
+                              </div>
+
+                              ${item.offer ? `
+                                <div class="flex items-center gap-1.5">
+                                  <i class="sicon-discount-calculator text-gray-500 offer-icon"></i>
+                                  <span class="text-sm text-gray-500 offer-name">${item.offer.names}</span>
+                                </div>
+                              ` : ``}
+
+                              <p class="text-primary flex-none font-bold text-sm rtl:md:pl-12 ltr:md:pr-12">
+                                  <span>${salla.lang.get('pages.cart.total')}:</span>
+                                  <span class="inline-block item-total">${ item.is_available ? salla.money(item.total) : salla.lang.get('pages.cart.out_of_stock')}</span>
+                              </p>
+                          </div>
+                      </div>
+
+                      <div class="flex-1 border-t border-gray-100 pt-3 md:border-none mt-5 md:mt-0 flex justify-between items-center md:items-start">
+                          
+                        <salla-quantity-input cart-item-id="${item.id}" max="{{ product.max_quantity }}"
+                            class="transtion transition-color duration-300" aria-label="Quantity"
+                            value="${item.quantity}" name="quantity">
+                        </salla-quantity-input>
+                          
+                      </div>
+                  </div>
+
+                  <span class="absolute top-1.5 rtl:left-1.5 ltr:right-1.5 rtl:xs:left-5 ltr:xs:right-5 xs:top-5">
+                      <salla-button type="button" shape="icon" size="medium" color="danger" class="btn--delete" aria-label="Remove from the cart" onclick="salla.cart.deleteItem(${item.id}).then(() => document.querySelector('#item-${item.id}').remove())">
+                        <i class="smticon-trash"></i>
+                      </salla-button>
+                  </span>
+              </section>
+            </form>
+            `
+          }).join('');
+
+          total.innerHTML = salla.money(cart.total);
+
+          if (cart.sub_total) {
+            subTotal.classList.remove('hidden');
+            subTotal.innerHTML = salla.money(cart.sub_total);
+          } else
+            subTotal.classList.add('hidden');
+
+        } else {
+          cartPanel.classList.add('cart-is-empty');
+          itemsWrap.innerHTML = `
+            <div class="no-content-placeholder">
+                <i class="sicon-shopping-bag icon"></i>
+                <p>${salla.lang.get('pages.cart.empty_cart')}</p>
+            </div>
+          `
+        }
+      }).finally(() => {
+        cartPanel.classList.remove('is-loading');
+      })
+    })
+  }
+</script>
+
 {% if store.scope %}
     <salla-scopes selection="{{ store.scope.display_as == 'popup' ? 'mandatory' : 'optional' }}"></salla-scopes>
 {% endif %}
